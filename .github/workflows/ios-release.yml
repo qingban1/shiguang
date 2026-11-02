@@ -54,14 +54,37 @@ jobs:
           name: release-ipa
           path: build/ios/ipa
       
-      - name: Upload using iTMSTransporter
+      - name: Upload IPA using official xcrun altool
+        shell: bash
         env:
           WORKING_DIRECTORY: build/ios/ipa
           IPA_FILE_NAME: 拾岸微光.ipa
-          APPLE_USERNAME: VictoriousJulio624@outlook.com
-          APPLE_PASSWORD: akhr-fvjo-mqbn-gmjq
-          APPLE_ASC_PROVIDER: 9STZLT47AN
+          APPLE_USERNAME: "VictoriousJulio624@outlook.com"
+          APPLE_PASSWORD: "akhr-fvjo-mqbn-gmjq"
         run: |
-          cd $WORKING_DIRECTORY
-          git clone https://github.com/ZhangLi1984/itsm.git
-          ./itsm/bin/iTMSTransporter -assetFile $IPA_FILE_NAME -u $APPLE_USERNAME -p $APPLE_PASSWORD -m upload -asc_provider $APPLE_ASC_PROVIDER
+          set -euo pipefail
+
+          echo "Xcode version:"
+          xcodebuild -version
+          echo "Locating official altool:"
+          xcrun --find altool
+
+          cd "$WORKING_DIRECTORY"
+          if [[ ! -f "$IPA_FILE_NAME" ]]; then
+            echo "指定 IPA 不存在。当前目录内文件："
+            ls -lah
+            exit 1
+          fi
+
+          # Confirm that the file is a valid ZIP container before sending it.
+          unzip -tq "$IPA_FILE_NAME" > /dev/null
+          echo "IPA 已找到并通过归档完整性检查，开始上传..."
+
+          # The @env: prefix avoids including the actual password in CLI args.
+          xcrun altool --upload-app \
+            --file "$IPA_FILE_NAME" \
+            --type ios \
+            --username "$APPLE_USERNAME" \
+            --password "@env:APPLE_PASSWORD" \
+            --verbose
+
